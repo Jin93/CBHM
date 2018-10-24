@@ -1,0 +1,41 @@
+model{
+# prior distributions for EX-parameters
+for (jj in 1:Nexch) {
+mu[jj] ~dnorm(mu.mean[jj],mu.prec[jj])
+prior.tau.prec[jj] <- pow(tau.HN.scale[jj],-2)
+tau[jj] ~ dnorm(0,prior.tau.prec[jj])I(0.001,)
+prec.tau[jj] <- pow(tau[jj],-2)
+}
+# log-odds parameters under EX
+for (jj in 1:Nexch) {
+for (j in 1:Nstrata) {
+re[jj,j] ~ dnorm(0,prec.tau[jj])
+LogOdds[jj,j] <- mu[jj]+re[jj,j]
+}
+}
+
+# log-odds parameters under NEX
+for (j in 1:Nstrata) {
+LogOdds[Nmix,j] ~ dnorm(nex.mean,nex.prec)
+}
+# latent mixture indicators:
+# exch.index: categorial 1,...,Nmix=Nexch+1
+# exch: Nstrata x Nmix matrix of 0/1 elements
+for (j in 1:Nstrata) {
+exch.index[j] ~ dcat(pMix[1:Nmix])
+for (jj in 1:Nmix) {
+exch[j,jj] <- equals(exch.index[j],jj)
+}
+}
+# pick theta
+for (j in 1:Nstrata) {
+theta[j] <- LogOdds[exch.index[j],j]
+}
+# likelihood part
+for (i in 1:Nstrata) {
+logit( p[i] ) <- theta[i]
+p.success[i] <- step(p[i]-p.cut)
+r[i] ~ dbin(p[i],n[i])
+}
+ pMix ~ ddirich(dirichprior)
+}
