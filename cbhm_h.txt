@@ -1,0 +1,27 @@
+model
+{
+  for (i in 1:K)
+  {
+    Y[i] ~ dbin(p[i],n[i])
+    p[i] <- exp(theta[i])/(1+exp(theta[i]))
+    theta[i] <- theta0 + e[i]
+  }
+  for (i in 1:(K-1))
+  {
+    for (j in (i+1):K)
+    {
+      C[i,j]=exp(-phi*D[i,j])/tausq
+      C[j,i]=C[i,j]
+    }
+  }
+  for (i in 1:K)
+  {
+    C[i,i]=1/tausq + 1/tausq2
+  }
+  phi ~ dgamma(4,2) # for H distance
+  e ~ dmnorm(zero,inverse(C[,]))
+  theta0 ~ dnorm(-0.8,tausq3)
+  tausq ~ dgamma(1,1)
+  tausq2 ~ dgamma(1,1)
+  tausq3 ~ dgamma(0.1,0.1)
+}
