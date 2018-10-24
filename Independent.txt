@@ -1,0 +1,9 @@
+model
+{
+  for (i in 1:K)
+  {
+    Y[i] ~ dbin(p[i],n[i])
+    #p[i] ~ dbeta(1,1)
+    p[i] ~ dbeta(1,1)
+  }
+}
