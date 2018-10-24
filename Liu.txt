@@ -1,0 +1,15 @@
+model
+{
+  for (i in 1:K)
+  {
+    Y[i] ~ dbin(p[i],n[i])
+    p[i] <- exp(theta[i])/(1+exp(theta[i]))
+    theta[i]<-0.50*a1[i]+0.50*a2[i]
+    a1[i] ~ dnorm(theta0[1],tausq[1])	
+    a2[i] ~ dnorm(theta0[2],tausq[2])
+  }
+  theta0[1] ~ dnorm(-1.38, 0.42)
+  tausq[1] ~ dgamma(0.1,0.1)
+  theta0[2] ~ dnorm(-0.41, 0.57)
+  tausq[2] ~ dgamma(0.1,0.1)
+}
