@@ -6,6 +6,26 @@ p.scenario=matrix(c(rep(0.2,K),c(rep(0.4,4),rep(0.2,2)),c(rep(0.4,2),rep(0.2,4))
                     c(rep(0.4,3),rep(0.2,3)),c(0.4,rep(0.2,5)),
                     c(0.5,rep(0.4,4),0.2),rep(0.4,6)),7,K,byrow=T)
 methods=c("S-BHM","EXNEX","Liu","BHM","Independent")
+
+
+
+##################### Create simulated data: #####################
+K=6 # number of indications
+num.sim=5000
+Ni=24
+Ni1=14
+simdata=list()
+for (scenario in 1:8)
+{
+  simdata[[scenario]]=matrix(NA,num.sim*Ni,K)
+  p0=p.scenario[scenario,]
+  for (sim in 1:num.sim)
+  {
+    simdata[[scenario]][((sim-1)*Ni+1):(sim*Ni),]=sapply(1:K,FUN=function(x){rbinom(n=Ni,size=1,prob=p0[x])})
+  }
+}
+
+##################### Simulation: #####################
 OC=list()
 Decision=list()
 decisons=list()
