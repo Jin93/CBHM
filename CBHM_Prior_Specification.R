@@ -1,5 +1,5 @@
-###### R function for determining the value of a in the 
-###### Gamma(a, 1) prior for the range parameter phi in the correlation function
+###### R function for determining the value of a in the Gamma(a, 1) prior for the range parameter
+###### phi in the correlation function, under a general trial setting
 
 
 ### M: the number of simulations in each homogeneous scenario
