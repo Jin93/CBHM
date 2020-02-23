@@ -9,6 +9,6 @@ This repository provides the R code for Bayesian hierarchical model with a corre
 5. CBHM_kl.R:                    an example code for CBHM using KL distance.
 
 
-# Citation
+## Citation
 please cite:
 Jin, J., Riviere, M. K., Luo, X., & Dong, Y. (2020). Bayesian Methods for the Analysis of Early-Phase Oncology Basket Trials with Information Borrowing across Cancer Types. arXiv preprint arXiv:2002.03007.
