@@ -17,24 +17,27 @@ a_select = function(M, N, q0, q1, alpha, I, varrho.lb, varrho.ub)
   dsample = NULL
   for (i in 1:I)
   {
-    ##### Homogeneous scenario 1: p1 = p2 = q0[i]
-    rr1 = rbinom(M,size=N[i],prob=q0[i])
-    rr2 = rbinom(M,size=N[i],prob=q0[i])
-    a1=1+rr1
-    a2=1+rr2
-    b1=1+N[i]-rr1
-    b2=1+N[i]-rr2
-    DB= -log(beta((a1+a2)/2,(b1+b2)/2)/sqrt(beta(a1,b1)*beta(a2,b2)))
-    dsample = c(dsample, DB)
-    ##### Homogeneous scenario 2: p1 = p2 = q1[i]
-    rr1 = rbinom(M,size=N[i],prob=q1[i])
-    rr2 = rbinom(M,size=N[i],prob=q1[i])
-    a1=1+rr1
-    a2=1+rr2
-    b1=1+N[i]-rr1
-    b2=1+N[i]-rr2
-    DB= -log(beta((a1+a2)/2,(b1+b2)/2)/sqrt(beta(a1,b1)*beta(a2,b2)))
-    dsample = c(dsample, DB)
+    for (j in c(1:I)[-i])
+    {
+      ##### Homogeneous scenario 1: p1 = p2 = q0[i]
+      rr1 = rbinom(M,size=N[i],prob=q0[i])
+      rr2 = rbinom(M,size=N[j],prob=q0[j])
+      a1=1+rr1
+      a2=1+rr2
+      b1=1+N[i]-rr1
+      b2=1+N[j]-rr2
+      DB= -log(beta((a1+a2)/2,(b1+b2)/2)/sqrt(beta(a1,b1)*beta(a2,b2)))
+      dsample = c(dsample, DB)
+      ##### Homogeneous scenario 2: p1 = p2 = q1[i]
+      rr1 = rbinom(M,size=N[i],prob=q1[i])
+      rr2 = rbinom(M,size=N[j],prob=q1[j])
+      a1=1+rr1
+      a2=1+rr2
+      b1=1+N[i]-rr1
+      b2=1+N[j]-rr2
+      DB= -log(beta((a1+a2)/2,(b1+b2)/2)/sqrt(beta(a1,b1)*beta(a2,b2)))
+      dsample = c(dsample, DB)
+    }
   }
   ######## Step 1.2: calculate the d_t: the 1-alpha quantile of dsample
   d_t = quantile(x = dsample, probs = 1-alpha)
@@ -43,13 +46,9 @@ a_select = function(M, N, q0, q1, alpha, I, varrho.lb, varrho.ub)
   a.ub = -log(varrho.lb)/d_t
   ######## Step 3: randomly select a value for a from Unif(a.lb,a.ub)
   a = runif(1,a.lb,a.ub)
-  return(a)
+  return(list(a=a,al=a.lb,au=a.ub))
 }
-
-
 
 ########### example:
 a = a_select(M = 5000, N = c(20,22,24,22,22), q0 = c(0.2, 0.15, 0.25, 0.2, 0.2), q1 = c(0.4, 0.35, 0.35, 0.45, 0.4), 
              alpha = 0.1, I = 5, varrho.lb = 0.3, varrho.ub = 0.5)
-a
-
