@@ -1,4 +1,5 @@
-####### jags model for Liu et al. (2017)
+####### jags model for the BHMM part in Liu et al. (2017)
+####### the choice of hyperparameters follow the ones in Liu et al. (2017)
 
 model
 {
