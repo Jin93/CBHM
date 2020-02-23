@@ -22,7 +22,7 @@ model
   # for kl-squared exp to have invertible covariance matrix during the iterations
   phi ~ dunif(0.5,1.5) 
   e ~ dmnorm(zero,inverse(C[,]))
-  theta0 ~ dnorm(-mu0,tausq3)
+  theta0 ~ dnorm(mu0,tausq3)
   tausq ~ dunif(2,3)
   tausq2 ~ dunif(2,4)
   tausq3 ~ dgamma(0.1,0.1)
