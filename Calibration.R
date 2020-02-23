@@ -1,10 +1,10 @@
-load("spatial-model/simulation.RData")
 library(entropy)
 library(rjags)
 library(mvtnorm)
 library(boot) # for inverse logit function
 library(nonpar) # for Cochran's Q test
 library(distrEx) #for TotalVarD
+library(nonpar) # for function cochrans.q
 
 ###### General Simulation Settings:
 K=6 # number of indications
@@ -12,8 +12,8 @@ alpha=0.1 # significance level for the test
 num.sim=5000 # the number of simulations per simulation setting
 Ni=24 # the maximum of total sample size for each indication group
 Ni1=14 # stage-one sample size for each indication group
-nik=matrix(NA,2,K) # each row records the number of patients in indication k at stage i
-rik=matrix(NA,2,K) # each row records the number of responders in indication k at stage i
+nik=matrix(NA,2,K) # each row stores the number of patients in indication k at stage i
+rik=matrix(NA,2,K) # each row stores the number of responders in indication k at stage i
 nik[1,]=rep(Ni1,K) # number of patients enrolled at stage 1
 
 q0=0.2 # standard of care (null) response rate
