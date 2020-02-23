@@ -7,6 +7,9 @@ model
     theta[i] <- theta0 + e[i]
     e[i] ~ dnorm(0,tausq)
   }
-  theta0 ~ dnorm(-1.386294,0.001)
+  theta0 ~ dnorm(-mu0,0.001)
   tausq ~ dgamma(0.001,0.001)
 }
+
+
+#### mu0 = log(q0/(1-q0)) where q0 denotes the standard of care response rate
