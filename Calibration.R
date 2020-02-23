@@ -1,3 +1,4 @@
+load("spatial-model/simulation.RData")
 library(entropy)
 library(rjags)
 library(mvtnorm)
@@ -12,8 +13,8 @@ alpha=0.1 # significance level for the test
 num.sim=5000 # the number of simulations per simulation setting
 Ni=24 # the maximum of total sample size for each indication group
 Ni1=14 # stage-one sample size for each indication group
-nik=matrix(NA,2,K) # each row stores the number of patients in indication k at stage i
-rik=matrix(NA,2,K) # each row stores the number of responders in indication k at stage i
+nik=matrix(NA,2,K) # each row records the number of patients in indication k at stage i
+rik=matrix(NA,2,K) # each row records the number of responders in indication k at stage i
 nik[1,]=rep(Ni1,K) # number of patients enrolled at stage 1
 
 q0=0.2 # standard of care (null) response rate
@@ -29,7 +30,6 @@ p0=rep(q0,K) # true rr: set the true rr for all indications to null rr (null sce
 Qf=0.05 # probability cut-off for interim analysis
 epsilon = 3*(q1-q0)/K # the small value added to the number of responsders for the indication groups that have equal sample rr
 
-decision=matrix(NA,num.sim,K)
 posterior.cbhm.b=matrix(NA,num.sim,K)
 for (sim in 1:num.sim)
 {
@@ -70,7 +70,7 @@ for (sim in 1:num.sim)
   rik=rikstar
   zero=rep(0,K)
   ## Jags model for CBHM:
-  jags.data <- list("n"=nik[1,], "Y"=rik[1,], "D"=D, "K"=K, "zero"=zero)
+  jags.data <- list("n"=nik[1,], "Y"=rik[1,], "D"=D, "K"=K, "zero"=zero,'mu0'=log(((q0+q1)/2)/(1-(q0+q1)/2)))
   jags.fit <- jags.model(file = "cbhm.txt",data = jags.data,
                          n.adapt=1000,n.chains=1,quiet=T)
   update(jags.fit, 4000,quiet=T)
@@ -86,7 +86,6 @@ for (sim in 1:num.sim)
   stage2.stop=which(posterior<Qf)
   stage2.cont=which(posterior>=Qf)
   nik[2,]=sapply(1:K,FUN=function(x){ifelse(is.element(x,stage2.cont),Ni-Ni1,0)})
-  decision[sim,stage2.stop]=0
   posterior.cbhm.b[sim,stage2.stop]=0
   ## Stage 2:
   if (length(stage2.cont)>0)
@@ -131,7 +130,7 @@ for (sim in 1:num.sim)
     }
     ri=ristar
     zero=rep(0,K1)
-    jags.data <- list("n"=ni, "Y"=ri, "D"=D, "K"=K1, "zero"=zero)
+    jags.data <- list("n"=ni, "Y"=ri, "D"=D, "K"=K1, "zero"=zero,'mu0'=log(((q0+q1)/2)/(1-(q0+q1)/2)))
     jags.fit <- jags.model(file = "cbhm.txt",data = jags.data,
                            n.adapt=1000,n.chains=1,quiet=T)
     update(jags.fit, 4000,quiet=T)
@@ -150,7 +149,6 @@ for (sim in 1:num.sim)
       }
       posterior[k]=sum(post.sample>q0)/length(post.sample)
     }
-    decision[sim,stage2.cont]=ifelse(posterior>Q.cbhm.b,1,0)
     posterior.cbhm.b[sim,stage2.cont]=posterior
   }
   print(sim)
@@ -159,7 +157,6 @@ Q.cbhm.b=quantile(posterior.cbhm.b,1-alpha) # probability cut-off for the final 
 
 
 ################# Calibration for EXNEX:
-decision=matrix(NA,num.sim,K)
 posterior.exnex=matrix(NA,num.sim,K)
 for (sim in 1:num.sim)
 {
@@ -197,7 +194,6 @@ for (sim in 1:num.sim)
   stage2.stop=which(posterior<Qf)
   stage2.cont=which(posterior>=Qf)
   nik[2,]=sapply(1:K,FUN=function(x){ifelse(is.element(x,stage2.cont),Ni-Ni1,0)})
-  decision[sim,stage2.stop]=0
   posterior.exnex[sim,stage2.stop]=0
   ## Stage 2:
   if (length(stage2.cont)>0)
@@ -242,8 +238,6 @@ for (sim in 1:num.sim)
         posterior[k]=sum(post.sample>q0)/length(post.sample)
       }
     }
-    ## Final decision:
-    decision[sim,stage2.cont]=ifelse(posterior>Q.exnex,1,0)
     posterior.exnex[sim,stage2.cont]=posterior
   }
   print(sim)
@@ -254,7 +248,6 @@ Q.exnex=quantile(posterior.exnex,1-alpha)
 ##### FFR for homogeneity test: 0.2 from Liu et al. (2017)
 ############### Tuning homogeneity path:
 C=0.5 # threshold for futility stopping, follows Liu et al. (2017)
-decision=matrix(NA,num.sim,K)
 posterior.liu=matrix(0,num.sim,K)
 for (sim in 1:num.sim)
 {
@@ -275,7 +268,6 @@ for (sim in 1:num.sim)
   stage2.stop=which(posterior<C)
   stage2.cont=which(posterior>=C)
   nik[2,]=sapply(1:K,FUN=function(x){ifelse(is.element(x,stage2.cont),Ni-Ni1,0)})
-  decision[sim,stage2.stop]=0
   posterior.liu[sim,stage2.stop]=0
   ## Stage 2:
   if (length(stage2.cont)>0)
@@ -297,8 +289,6 @@ for (sim in 1:num.sim)
       # posterior probability that rr_k > q0_k:
       posterior[k]=sum(post.sample>q0)/length(post.sample)
     }
-    ## Final decision:
-    decision[sim,stage2.cont]=ifelse(posterior>Q.liu,1,0)
     posterior.liu[sim,stage2.cont]=posterior
   }
   print(sim)
@@ -306,7 +296,6 @@ for (sim in 1:num.sim)
 Q.liu=quantile(posterior.liu,1-alpha)
 
 ########## Calibration for BHM:
-decision=matrix(NA,num.sim,K)
 posterior.bhm=matrix(0,num.sim,K)
 for (sim in 1:num.sim)
 {
@@ -329,7 +318,6 @@ for (sim in 1:num.sim)
   stage2.stop=which(posterior<Qf)
   stage2.cont=which(posterior>=Qf)
   nik[2,]=sapply(1:K,FUN=function(x){ifelse(is.element(x,stage2.cont),Ni-Ni1,0)})
-  decision[sim,stage2.stop]=0
   posterior.bhm[sim,stage2.stop]= posterior[stage2.stop]
   ## Stage 2:
   if (length(stage2.cont)>0)
@@ -361,7 +349,6 @@ for (sim in 1:num.sim)
       }
     }
     ## Final decision:
-    decision[sim,stage2.cont]=ifelse(posterior>Q.bhm,1,0)
     posterior.bhm[sim,stage2.cont]=posterior
   }
   print(sim)
@@ -369,8 +356,6 @@ for (sim in 1:num.sim)
 Q.bhm=quantile(posterior.bhm,1-alpha)
 
 ########## Calibration for Independent Analysis:
-Q=Qcandidate[Q.index]
-decision=matrix(NA,num.sim,K)
 posterior.ind=matrix(0,num.sim,K)
 for (sim in 1:num.sim)
 {
@@ -394,7 +379,6 @@ for (sim in 1:num.sim)
   stage2.cont=which(posterior>=Qf)
   #nik[2,]=sapply(1:K,FUN=function(x){ifelse(is.element(x,stage2.cont),(Ni-Ni1)*K/length(stage2.cont),0)})
   nik[2,]=sapply(1:K,FUN=function(x){ifelse(is.element(x,stage2.cont),Ni-Ni1,0)})
-  decision[sim,stage2.stop]=0
   posterior.ind[sim,stage2.stop]=posterior[stage2.stop]
   ## Stage 2:
   if (length(stage2.cont)>0)
@@ -425,12 +409,8 @@ for (sim in 1:num.sim)
         posterior[k]=sum(post.sample>q0)/length(post.sample)
       }
     }
-    ## Futility stop:
-    decision[sim,stage2.cont]=ifelse(posterior>Q.independent,1,0)
     posterior.ind[sim,stage2.cont]=posterior
   }
   print(sim)
 }
 Q.independent=quantile(posterior.ind,1-alpha) 
-
-
