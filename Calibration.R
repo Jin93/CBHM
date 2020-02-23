@@ -6,34 +6,37 @@ library(boot) # for inverse logit function
 library(nonpar) # for Cochran's Q test
 library(distrEx) #for TotalVarD
 
-###### Overall simulation settings:
+###### General Simulation Settings:
 K=6 # number of indications
-alpha=0.1
-num.sim=5000
-Ni=24
-Ni1=14
-nik=matrix(NA,2,K) # number of patients in indication k at state i
-rik=matrix(NA,2,K) # number of responders in indication k at state i
+alpha=0.1 # significance level for the test
+num.sim=5000 # the number of simulations per simulation setting
+Ni=24 # the maximum of total sample size for each indication group
+Ni1=14 # stage-one sample size for each indication group
+nik=matrix(NA,2,K) # each row records the number of patients in indication k at stage i
+rik=matrix(NA,2,K) # each row records the number of responders in indication k at stage i
 nik[1,]=rep(Ni1,K) # number of patients enrolled at stage 1
 
-q0=0.2
-q1=0.4
+q0=0.2 # standard of care (null) response rate
+q1=0.4 # target response rate
 ##################################################
 ############### Calibration Stage: ###############
 ##################################################
-p_null=rep(q0,K)
-p0=p_null
-Qf=0.05
-########## Calibration for CBHM with B distance measure 
-# & expnential correlation function:
+p0=rep(q0,K) # true rr: set the true rr for all indications to null rr (null scenario)
+############## calibrate the tuning parameters for each method so that 
+############## the type I error rate is well controlled under the null scenario
+
+########## Calibration for CBHM with B distance measure & expnential correlation function:
+Qf=0.05 # probability cut-off for interim analysis
+epsilon = 3*(q1-q0)/K # the small value added to the number of responsders for the indication groups that have equal sample rr
+
 decision=matrix(NA,num.sim,K)
-posterior.sbhm.b=matrix(NA,num.sim,K)
+posterior.cbhm.b=matrix(NA,num.sim,K)
 for (sim in 1:num.sim)
 {
   ##### Stage 1:
   rik[1,]=sapply(1:K,FUN=function(x){rbinom(n=1,size=nik[1,x],prob=p0[x])})
   rikstar=rik
-  ######### H distance matrix:
+  ######### B distance matrix:
   D=matrix(NA,K,K)
   for (j in 1:(K-1))
   {
@@ -41,7 +44,7 @@ for (sim in 1:num.sim)
     {
       if ((rik[1,j]/nik[1,j])==(rik[1,k]/nik[1,k]))
       {
-        rik[1,k]=rik[1,j] + 0.1
+        rik[1,k]=rik[1,j] + epsilon
       }
     }
   }
@@ -52,7 +55,6 @@ for (sim in 1:num.sim)
       if (j == k)
       {
         D[j,k] = 0
-        #R[j,k] = 1
       }
       if (j != k)
       {
@@ -67,17 +69,17 @@ for (sim in 1:num.sim)
   
   rik=rikstar
   zero=rep(0,K)
-  ############ Jags model for Spatial BHM:
+  ## Jags model for CBHM:
   jags.data <- list("n"=nik[1,], "Y"=rik[1,], "D"=D, "K"=K, "zero"=zero)
-  jags.fit <- jags.model(file = "~/Google Drive/Sanofi/Jin/R/spatial-model/s-bhm.txt",data = jags.data,
+  jags.fit <- jags.model(file = "cbhm.txt",data = jags.data,
                          n.adapt=1000,n.chains=1,quiet=T)
   update(jags.fit, 4000,quiet=T)
-  sbhm.out <- coda.samples(jags.fit,variable.names = c("theta0","phi","tausq","tausq2","e","p"),n.iter=10000,quiet=T)
-  ### Interim analysis:
+  cbhm.out <- coda.samples(jags.fit,variable.names = c("theta0","phi","tausq","tausq2","e","p"),n.iter=10000,quiet=T)
+  ## Interim analysis:
   posterior=numeric()
   for (k in 1:K)
   {
-    post.sample=sbhm.out[[1]][,paste("p[",k,"]",sep="")]
+    post.sample=cbhm.out[[1]][,paste("p[",k,"]",sep="")]
     posterior[k]=sum(post.sample>(q0+q1)/2)/length(post.sample)
   }
   ## Futility stop:
@@ -85,8 +87,7 @@ for (sim in 1:num.sim)
   stage2.cont=which(posterior>=Qf)
   nik[2,]=sapply(1:K,FUN=function(x){ifelse(is.element(x,stage2.cont),Ni-Ni1,0)})
   decision[sim,stage2.stop]=0
-  posterior.sbhm.b[sim,stage2.stop]=0
-  
+  posterior.cbhm.b[sim,stage2.stop]=0
   ## Stage 2:
   if (length(stage2.cont)>0)
   {
@@ -104,7 +105,7 @@ for (sim in 1:num.sim)
         {
           if (ri[j]/ni[j]==ri[k]/ni[k])
           {
-            ri[k] = ri[j] + 0.1
+            ri[k] = ri[j] + epsilon
           }
         }
       }
@@ -117,7 +118,6 @@ for (sim in 1:num.sim)
         if (j == k)
         {
           D[j,k] = 0
-          #R[j,k] = 1
         }
         if (j != k)
         {
@@ -132,40 +132,40 @@ for (sim in 1:num.sim)
     ri=ristar
     zero=rep(0,K1)
     jags.data <- list("n"=ni, "Y"=ri, "D"=D, "K"=K1, "zero"=zero)
-    jags.fit <- jags.model(file = "~/Google Drive/Sanofi/Jin/R/spatial-model/s-bhm.txt",data = jags.data,
+    jags.fit <- jags.model(file = "cbhm.txt",data = jags.data,
                            n.adapt=1000,n.chains=1,quiet=T)
     update(jags.fit, 4000,quiet=T)
-    sbhm.out <- coda.samples(jags.fit,variable.names = c("theta0","phi","tausq","tausq2","e","p"),n.iter=10000,quiet=T)
-    
-    ### Final decision:
+    cbhm.out <- coda.samples(jags.fit,variable.names = c("theta0","phi","tausq","tausq2","e","p"),n.iter=10000,quiet=T)
+    ### Testing & estimation
     posterior=numeric()
     for (k in 1:K1)
     {
       if (K1>1)
       {
-        post.sample=sbhm.out[[1]][,paste("p[",k,"]",sep="")]
+        post.sample=cbhm.out[[1]][,paste("p[",k,"]",sep="")]
       }
       if (K1==1)
       {
-        post.sample=sbhm.out[[1]][,"p"]
+        post.sample=cbhm.out[[1]][,"p"]
       }
       posterior[k]=sum(post.sample>q0)/length(post.sample)
     }
-    decision[sim,stage2.cont]=ifelse(posterior>Q.sbhm.b,1,0)
-    posterior.sbhm.b[sim,stage2.cont]=posterior
+    decision[sim,stage2.cont]=ifelse(posterior>Q.cbhm.b,1,0)
+    posterior.cbhm.b[sim,stage2.cont]=posterior
   }
   print(sim)
 }
-Q.sbhm.b=quantile(posterior.sbhm.b,0.9)   ###0.8716 
+Q.cbhm.b=quantile(posterior.cbhm.b,1-alpha) # probability cut-off for the final decision
 
 
-########## Calibration for EXNEX:
+################# Calibration for EXNEX:
 decision=matrix(NA,num.sim,K)
 posterior.exnex=matrix(NA,num.sim,K)
 for (sim in 1:num.sim)
 {
   ##### Stage 1:
   rik[1,]=sapply(1:K,FUN=function(x){rbinom(n=1,size=nik[1,x],prob=p0[x])})
+  ### the code for EXNEX model follows the one provided in Neuenschwander et al. (2016)
   jags.data <- list(
     "Nexch"=1, "Nmix"=2,
     "dirichprior" = c(1,1),
@@ -182,12 +182,11 @@ for (sim in 1:num.sim)
     "nex.mean"=log(q0/(1-q0)), "nex.prec"=0.15,
     "p.cut" = 0.3
   )
-  jags.fit <- jags.model(file = "~/Google Drive/Sanofi/Jin/R/exnex.txt",data = jags.data,
+  jags.fit <- jags.model(file = "exnex.txt",data = jags.data,
                          n.adapt=1000,n.chains=1,quiet=T)
   update(jags.fit, 4000)
   exnex.out <- coda.samples(jags.fit,variable.names = c("tau","mu","p","theta","pMix","exch.index"),n.iter=10000)
-  
-  ### Interim analysis:
+  ##Interim analysis:
   posterior=numeric()
   for (k in 1:K)
   {
@@ -200,7 +199,6 @@ for (sim in 1:num.sim)
   nik[2,]=sapply(1:K,FUN=function(x){ifelse(is.element(x,stage2.cont),Ni-Ni1,0)})
   decision[sim,stage2.stop]=0
   posterior.exnex[sim,stage2.stop]=0
-  
   ## Stage 2:
   if (length(stage2.cont)>0)
   {
@@ -208,8 +206,7 @@ for (sim in 1:num.sim)
     ri=colSums(as.matrix(rik[,stage2.cont]))
     ni=colSums(as.matrix(nik[,stage2.cont]))
     K1=length(stage2.cont)
-    
-    ############ Jags model for BHM:
+    ############ Jags model for EXNEX:
     jags.data <- list(
       "Nexch"=1, "Nmix"=2,
       "dirichprior" = c(1,1),
@@ -226,12 +223,11 @@ for (sim in 1:num.sim)
       "nex.mean"=log(q0/(1-q0)), "nex.prec"=0.15,
       "p.cut" = 0.3
     )
-    jags.fit <- jags.model(file = "~/Google Drive/Sanofi/Jin/R/exnex.txt",data = jags.data,
+    jags.fit <- jags.model(file = "exnex.txt",data = jags.data,
                            n.adapt=1000,n.chains=1,quiet=T)
     update(jags.fit, 4000)
     exnex.out <- coda.samples(jags.fit,variable.names = c("tau","mu","p","theta","pMix","exch.index"),n.iter=10000)
-    
-    ### Final decision:
+    ## Testing & estimation
     posterior=numeric()
     if (K1==1)
     {
@@ -252,13 +248,12 @@ for (sim in 1:num.sim)
   }
   print(sim)
 }
-Q.exnex=quantile(posterior.exnex,0.9) 
+Q.exnex=quantile(posterior.exnex,1-alpha) 
 
 ########## Calibration for Liu's Method:
-##### FFR for homogeneity test: 0.2 from Liu's paper
-
+##### FFR for homogeneity test: 0.2 from Liu et al. (2017)
 ############### Tuning homogeneity path:
-C=0.5 # threshold for futility stopping
+C=0.5 # threshold for futility stopping, follows Liu et al. (2017)
 decision=matrix(NA,num.sim,K)
 posterior.liu=matrix(0,num.sim,K)
 for (sim in 1:num.sim)
@@ -267,7 +262,7 @@ for (sim in 1:num.sim)
   stage1resp=sapply(1:K,FUN=function(x){rbinom(n=nik[1,x],size=1,prob=p0[x])})
   rik[1,]=colSums(stage1resp)
   ################ Homogeneity Path: ################
-  ### Interim analysis:
+  ## Interim analysis:
   posterior=numeric()
   for (k in 1:K)
   {
@@ -280,10 +275,8 @@ for (sim in 1:num.sim)
   stage2.stop=which(posterior<C)
   stage2.cont=which(posterior>=C)
   nik[2,]=sapply(1:K,FUN=function(x){ifelse(is.element(x,stage2.cont),Ni-Ni1,0)})
-  
   decision[sim,stage2.stop]=0
   posterior.liu[sim,stage2.stop]=0
-  
   ## Stage 2:
   if (length(stage2.cont)>0)
   {
@@ -291,14 +284,12 @@ for (sim in 1:num.sim)
     ri=colSums(as.matrix(rik))
     ni=colSums(as.matrix(nik))
     K1=length(stage2.cont)
-    
     jags.data <- list("n"=ni, "Y"=ri, "K"=K)
-    jags.fit <- jags.model(file = "~/Google Drive/Sanofi/Jin/R/liu.txt",data = jags.data,
+    jags.fit <- jags.model(file = "liu.txt",data = jags.data,
                            n.adapt=1000,n.chains=1,quiet=T)
     update(jags.fit, 4000)
     liu.out <- coda.samples(jags.fit,variable.names = c("tausq","p","theta0"),n.iter=10000)
-    
-    ### Final decision:
+    ## Testing & estimation
     posterior=numeric()
     for (k in 1:K1)
     {
@@ -312,7 +303,7 @@ for (sim in 1:num.sim)
   }
   print(sim)
 }
-Q.liu=quantile(posterior.liu,0.9) # 0.0940 0.0965 0.1125 0.0900 0.1035 0.1030
+Q.liu=quantile(posterior.liu,1-alpha)
 
 ########## Calibration for BHM:
 decision=matrix(NA,num.sim,K)
@@ -321,14 +312,13 @@ for (sim in 1:num.sim)
 {
   ##### Stage 1:
   rik[1,]=sapply(1:K,FUN=function(x){rbinom(n=1,size=nik[1,x],prob=p0[x])})
-  
   ############ Jags model for BHM:
   jags.data <- list("n"=nik[1,], "Y"=rik[1,], "K"=K)
-  jags.fit <- jags.model(file = "~/Google Drive/Sanofi/Jin/R/spatial-model/BHM.txt",data = jags.data,
+  jags.fit <- jags.model(file = "BHM.txt",data = jags.data,
                          n.adapt=1000,n.chains=1,quiet=T)
   update(jags.fit, 4000)
   bhm.out <- coda.samples(jags.fit,variable.names = c("theta0","tausq","p"),n.iter=10000)
-  ### Interim analysis:
+  ## Interim analysis:
   posterior=numeric()
   for (k in 1:K)
   {
@@ -340,7 +330,7 @@ for (sim in 1:num.sim)
   stage2.cont=which(posterior>=Qf)
   nik[2,]=sapply(1:K,FUN=function(x){ifelse(is.element(x,stage2.cont),Ni-Ni1,0)})
   decision[sim,stage2.stop]=0
-  posterior.bhm[sim,stage2.stop]= posterior[stage2.stop]#0
+  posterior.bhm[sim,stage2.stop]= posterior[stage2.stop]
   ## Stage 2:
   if (length(stage2.cont)>0)
   {
@@ -349,15 +339,13 @@ for (sim in 1:num.sim)
     ristar=ri
     ni=colSums(as.matrix(nik[,stage2.cont]))
     K1=length(stage2.cont)
-    
     ############ Jags model for BHM:
     jags.data <- list("n"=ni, "Y"=ri, "K"=K1)
-    jags.fit <- jags.model(file = "~/Google Drive/Sanofi/Jin/R/spatial-model/BHM.txt",data = jags.data,
+    jags.fit <- jags.model(file = "BHM.txt",data = jags.data,
                            n.adapt=1000,n.chains=1,quiet=T)
     update(jags.fit, 4000)
     bhm.out <- coda.samples(jags.fit,variable.names = c("theta0","tausq","p"),n.iter=10000)
-    
-    ### Final decision:
+    ## Testing & estimation
     posterior=numeric()
     if (K1==1)
     {
@@ -378,8 +366,7 @@ for (sim in 1:num.sim)
   }
   print(sim)
 }
-Q.bhm=quantile(posterior.bhm,0.9)
-sapply(1:6,FUN=function(x){sum(decision[,x]>0)})/num.sim #0.0860 0.0925 0.0975 0.0990 0.0985 0.1015
+Q.bhm=quantile(posterior.bhm,1-alpha)
 
 ########## Calibration for Independent Analysis:
 Q=Qcandidate[Q.index]
@@ -389,14 +376,13 @@ for (sim in 1:num.sim)
 {
   ##### Stage 1:
   rik[1,]=sapply(1:K,FUN=function(x){rbinom(n=1,size=nik[1,x],prob=p0[x])})
-  
   ############ Jags model for BHM:
   jags.data <- list("n"=nik[1,], "Y"=rik[1,], "K"=K)
-  jags.fit <- jags.model(file = "~/Google Drive/Sanofi/Jin/R/spatial-model/independent.txt",data = jags.data,
+  jags.fit <- jags.model(file = "independent.txt",data = jags.data,
                          n.adapt=1000,n.chains=1,quiet=T)
   update(jags.fit, 4000)
   independent.out <- coda.samples(jags.fit,variable.names = c("p"),n.iter=10000)
-  ### Interim analysis:
+  ## Interim analysis:
   posterior=numeric()
   for (k in 1:K)
   {
@@ -409,7 +395,7 @@ for (sim in 1:num.sim)
   #nik[2,]=sapply(1:K,FUN=function(x){ifelse(is.element(x,stage2.cont),(Ni-Ni1)*K/length(stage2.cont),0)})
   nik[2,]=sapply(1:K,FUN=function(x){ifelse(is.element(x,stage2.cont),Ni-Ni1,0)})
   decision[sim,stage2.stop]=0
-  posterior.ind[sim,stage2.stop]=posterior[stage2.stop] #0
+  posterior.ind[sim,stage2.stop]=posterior[stage2.stop]
   ## Stage 2:
   if (length(stage2.cont)>0)
   {
@@ -418,15 +404,13 @@ for (sim in 1:num.sim)
     ristar=ri
     ni=colSums(as.matrix(nik[,stage2.cont]))
     K1=length(stage2.cont)
-    
     ############ Jags model for BHM:
     jags.data <- list("n"=ni, "Y"=ri, "K"=K1)
-    jags.fit <- jags.model(file = "~/Google Drive/Sanofi/Jin/R/spatial-model/independent.txt",data = jags.data,
+    jags.fit <- jags.model(file = "independent.txt",data = jags.data,
                            n.adapt=1000,n.chains=1,quiet=T)
     update(jags.fit, 4000)
     independent.out <- coda.samples(jags.fit,variable.names = c("p"),n.iter=10000)
-    
-    ### Final decision:
+    ## Final decision:
     posterior=numeric()
     if (K1==1)
     {
