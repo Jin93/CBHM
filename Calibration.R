@@ -1,4 +1,3 @@
-load("spatial-model/simulation.RData")
 library(entropy)
 library(rjags)
 library(mvtnorm)
