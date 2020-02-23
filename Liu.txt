@@ -1,3 +1,5 @@
+####### jags model for Liu et al. (2017)
+
 model
 {
   for (i in 1:K)
