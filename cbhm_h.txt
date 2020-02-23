@@ -18,10 +18,10 @@ model
   {
     C[i,i]=1/tausq + 1/tausq2
   }
-  phi ~ dgamma(4,2) # for H distance
+  phi ~ dgamma(1.5,1) # for H distance
   e ~ dmnorm(zero,inverse(C[,]))
-  theta0 ~ dnorm(-0.8,tausq3)
-  tausq ~ dgamma(1,1)
-  tausq2 ~ dgamma(1,1)
+  theta0 ~ dnorm(-mu0,tausq3)
+  tausq ~ dgamma(0.01,0.01)
+  tausq2 ~ dgamma(0.01,0.01)
   tausq3 ~ dgamma(0.1,0.1)
 }
