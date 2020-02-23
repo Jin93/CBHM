@@ -10,18 +10,18 @@ model
   {
     for (j in (i+1):K)
     {
-      C[i,j]=exp(-phi*D[i,j])/tausq
-      C[j,i]=C[i,j]
+      C[i,j]<-exp(-phi*D[i,j])/tausq
+      C[j,i]<-C[i,j]
     }
   }
   for (i in 1:K)
   {
-    C[i,i]=1/tausq + 1/tausq2
+    C[i,i]<-1/tausq + 1/tausq2
   }
-  phi ~ dgamma(1,1) # for B distance
+  phi ~ dgamma(1,1) # for B distance with exponential correlation function
   e ~ dmnorm(zero,inverse(C[,]))
-  theta0 ~ dnorm(-0.8,tausq3)
-  tausq ~ dgamma(1,1)
-  tausq2 ~ dgamma(1,1)
+  theta0 ~ dnorm(mu0,tausq3)
+  tausq ~ dgamma(0.01,0.01)
+  tausq2 ~ dgamma(0.01,0.01)
   tausq3 ~ dgamma(0.1,0.1)
 }
