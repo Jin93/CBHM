@@ -1,3 +1,5 @@
+####### jags model for BHM
+
 model
 {
   for (i in 1:K)
